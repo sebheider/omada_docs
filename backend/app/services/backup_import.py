@@ -2,7 +2,7 @@
 
 Supported inputs (JSON only):
 * ``omada-docs-raw``     – raw Open API responses in the collector structure (see docs/backup-import.md)
-* ``omada-docs-dataset`` – normalised dataset export produced by this application (``/api/backup/dataset``)
+* ``omada-docs-dataset`` – normalised dataset export produced by this application (``GET /api/dataset/export``)
 * ``api-responses``      – a JSON document with the same structure as the raw dump but without header
                            (e.g. responses collected manually with curl from the Open API)
 
