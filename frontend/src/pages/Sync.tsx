@@ -176,7 +176,7 @@ function BackupTab() {
       {isAdmin && (
         <Card title="Import Omada controller backup" icon={<ArchiveRestore className="h-4 w-4 text-slate-500" />}>
           <p className="mb-3 text-sm text-slate-600 dark:text-slate-300">
-            Upload an Omada controller backup / exported configuration (or a dataset JSON exported by this application). Supported data is imported as a separate source and
+            Upload a native Omada controller backup (.cfg – decrypted in memory, never stored), raw Open API responses or a dataset JSON exported by this application. Supported data is imported as a separate source and
             compared with the data from the Open API. API data always takes precedence; conflicts are listed for review. Secrets contained in the backup are discarded.
           </p>
           <div className="flex flex-wrap items-center gap-2">

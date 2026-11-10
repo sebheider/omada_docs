@@ -14,6 +14,7 @@ backend/tests
 frontend/dist
 docs
 *.md
+!THIRD_PARTY_NOTICES.md
 .env
 .env.*
 !.env.example
