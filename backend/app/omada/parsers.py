@@ -14,7 +14,7 @@ from typing import Any
 # ----------------------------------------------------------------------------- helpers
 
 _SECRET_EXACT = {"psk", "key", "pwd", "passphrase", "hidepwd"}
-_SECRET_PARTS = ("password", "secret", "token", "presharedkey", "privatekey", "securitykey", "passwd")
+_SECRET_PARTS = ("password", "secret", "token", "presharedkey", "privatekey", "securitykey", "passwd", "pwd")
 
 
 def is_secret_key(name: str) -> bool:

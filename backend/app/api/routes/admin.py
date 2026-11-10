@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Literal
+import re
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -43,15 +44,29 @@ class ControllerSettingsIn(BaseModel):
     max_requests_per_second: float = Field(default=5.0, ge=0.2, le=50)
     snapshot_retention: int = Field(default=200, ge=5, le=5000)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _split_url(cls, data: Any) -> Any:
+        """Accept a pasted URL like ``https://omada.local:8043/path`` and split scheme, host and port."""
+        if not isinstance(data, dict) or not isinstance(data.get("host"), str):
+            return data
+        data = dict(data)
+        v = data["host"].strip()
+        for scheme in ("https", "http"):
+            if v.lower().startswith(scheme + "://"):
+                v = v[len(scheme) + 3:]
+                data["scheme"] = scheme
+        v = v.split("/")[0]
+        m = re.fullmatch(r"(\[[0-9a-fA-F:.]+\]|[^:]+):(\d{1,5})", v)
+        if m:
+            v, data["port"] = m.group(1), int(m.group(2))
+        data["host"] = v
+        return data
+
     @field_validator("host")
     @classmethod
     def _host(cls, v: str) -> str:
-        v = v.strip()
-        for prefix in ("https://", "http://"):
-            if v.lower().startswith(prefix):
-                v = v[len(prefix):]
-        v = v.split("/")[0]
-        if any(c in v for c in " @?#"):
+        if any(c in v for c in " @?#/"):
             raise ValueError("Invalid host name")
         return v
 

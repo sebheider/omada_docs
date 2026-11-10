@@ -25,6 +25,9 @@ def _sqlite_pragmas(dbapi_conn, _record) -> None:  # pragma: no cover - trivial
 def init_engine(url: str | None = None) -> Engine:
     global _engine, _SessionLocal
     url = url or get_settings().db_url
+    if _engine is not None:
+        # Close pooled connections of a previous engine; stale handles break a later database file swap.
+        _engine.dispose()
     kwargs: dict = {"future": True, "pool_pre_ping": True}
     if url.startswith("sqlite"):
         kwargs["connect_args"] = {"check_same_thread": False}
