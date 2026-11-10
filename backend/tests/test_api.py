@@ -149,3 +149,14 @@ def test_app_backup_and_restore(client, admin):
     h = login(client, ADMIN["username"], ADMIN["password"])
     assert h
     assert client.get("/api/entities/network/net-server").json()["manual"]["description"] == "before backup"
+
+
+def test_dashboard_changes_are_filtered_by_site(client, admin):
+    from app.services.sync import run_sync
+
+    from .conftest import run
+
+    run(run_sync("manual"))
+    for site in ("demo-site-home", "demo-site-office"):
+        dash = client.get(f"/api/dashboard?site_id={site}").json()
+        assert all(c["site_id"] in (site, None) for c in dash["recent_changes"]), site

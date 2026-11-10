@@ -8,7 +8,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select, true
 from sqlalchemy.orm import Session
 
 from app import __version__
@@ -49,8 +49,9 @@ def dashboard(site_id: str | None = None, db: Session = Depends(get_db)) -> dict
     clients = ds.get("client", [])
     acl = analyze(ds, site_id) if site_id else {"rules": []}
     since = datetime.now(timezone.utc) - timedelta(days=7)
-    change_q = select(func.count(ChangeLog.id)).where(ChangeLog.ts >= since)
-    recent = db.scalars(select(ChangeLog).order_by(ChangeLog.id.desc()).limit(8)).all()
+    in_site = or_(ChangeLog.site_id == site_id, ChangeLog.site_id.is_(None)) if site_id else true()
+    change_q = select(func.count(ChangeLog.id)).where(ChangeLog.ts >= since, in_site)
+    recent = db.scalars(select(ChangeLog).where(in_site).order_by(ChangeLog.id.desc()).limit(8)).all()
     quality = quality_report(db, site_id)
     cs = load_controller_settings(db)
     by_type: dict[str, dict[str, int]] = {}
