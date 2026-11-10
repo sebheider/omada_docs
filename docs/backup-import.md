@@ -7,12 +7,46 @@ API; differences are reported as conflicts (*only in backup*, *only in API*, *di
 Upload files under **Sync & Import → Backup import** (administrators only, default limit 20 MB,
 `OMADA_DOCS_MAX_UPLOAD_MB`).
 
-## Native Omada controller backups (`.cfg`) – not supported
+## Native Omada controller backups (`.cfg`)
 
-Controller backups created via *Settings → Maintenance → Backup* are encrypted, proprietary binary files. Their
-format is undocumented and they contain credentials. Omada Docs detects such files and rejects them with an
-explanation instead of guessing their content. Use the Open API synchronisation, or one of the JSON formats
-below.
+Controller backups created via *Settings → Maintenance → Backup* (`.cfg`) can be imported directly. The
+decryption is ported from [Omada_Backup_Decryptor](https://github.com/jgrimard/Omada_Backup_Decryptor)
+by jgrimard (MIT License, see [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)):
+
+```
+.cfg = RC4( GZIP( JSON ) )
+```
+
+The RC4 key is static and embedded in the controller software (a 256-byte array whose first 8-byte block is
+TEA-decrypted), so no password is needed. The decryptor was verified by its author against controller
+versions 5.15, 6.1 and 6.2. Detection works by file extension or by content (the first bytes decrypt to a
+gzip header).
+
+Processing (`backend/app/omada/cfg_crypto.py`, `backend/app/omada/native_backup.py`):
+
+1. The file is decrypted **in memory**; decompression is capped at 128 MB (protection against
+   decompression bombs). Neither the `.cfg` file nor the decrypted JSON is ever written to disk or stored.
+2. The decrypted "SDN backup" document (`mainInfo`, `systemSetting`, `sites`, `deviceBriefInfo`, …) is
+   validated (nesting depth, element count, string length).
+3. Secrets are removed by field name, individually encrypted `v2#…` values are discarded (they are not
+   decrypted), and every secret value found in the backup is redacted from the result should it appear
+   under an unexpected field name.
+4. Sites and the lists stored below them are mapped **best effort** to the regular data model: the internal
+   format is undocumented and changes between controller versions, so lists are classified by their section
+   name (e.g. `lanNetworks`, `wlans`/`ssids`, `devices`/`deviceBriefInfo`, `portForwardings`, `gatewayAcls`,
+   `staticRoutes`, `vpns`, `ipGroups`, `lanProfiles`) and objects are read with the Open API field names.
+   Objects without the minimum fields for their type are skipped and counted in a warning; all other
+   sections are listed as *not interpreted*.
+5. Controller version, backup version and backup time are read from `mainInfo` where present.
+
+A backup that was already decrypted with the original tool (JSON containing `mainInfo` / `systemSetting`) is
+accepted as well and reported as `omada-native-backup-json`.
+
+Omada Docs only **reads** backups. It never creates or re-encrypts `.cfg` files, because the application is
+strictly read-only towards the controller.
+
+> Native backups contain plaintext credentials (Wi-Fi keys, device and RADIUS passwords). Treat the files
+> accordingly; Omada Docs discards these values during import.
 
 ## Supported formats (JSON)
 
@@ -74,7 +108,8 @@ cause the import to fail with an explanation.
 
 ## Validation and safety
 
-* Only JSON is parsed; nesting depth and item count are limited.
+* Only JSON and native `.cfg` backups are parsed; decompressed size, nesting depth, item count and string
+  length are limited.
 * Secrets (fields such as `psk`, `password`, `securityKey`, `*Pwd`, `token`, private keys) are removed
   recursively before anything is stored.
 * The import result shows the detected format and version, controller version, object counts, unsupported

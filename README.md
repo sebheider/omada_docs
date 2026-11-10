@@ -28,9 +28,9 @@ Designed to run as a single Docker container on a Synology NAS (or any Docker ho
 * **Change tracking** – field-level change log per sync and for manual edits, snapshot comparison.
 * **Export** – complete documentation as PDF, DOCX, HTML or CSV with selectable chapters, optional
   anonymisation; dataset export (JSON).
-* **Backup import** – JSON dataset/raw API dumps as an additional, untrusted source with conflict report
-  (native `.cfg` controller backups are encrypted and not supported – see
-  [docs/backup-import.md](docs/backup-import.md)).
+* **Backup import** – native Omada controller backups (`.cfg`, decrypted in memory) and JSON dataset/raw API
+  dumps as an additional, untrusted source with conflict report – see
+  [docs/backup-import.md](docs/backup-import.md).
 * **Security** – local users with *admin* and *viewer* roles, encrypted credentials, CSRF protection,
   network allow-list, login rate limiting, audit log, application backup/restore.
 
@@ -155,3 +155,5 @@ the Docker image).
 ## License
 
 No license has been chosen yet; all rights reserved by the repository owner.
+
+Third-party code is listed with its license in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

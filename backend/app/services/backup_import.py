@@ -6,8 +6,11 @@ Supported inputs (JSON only):
 * ``api-responses``      – a JSON document with the same structure as the raw dump but without header
                            (e.g. responses collected manually with curl from the Open API)
 
-Native Omada controller backups (``.cfg``) are encrypted, proprietary binary files and cannot be
-parsed. They are detected and rejected with an explanation.
+* ``omada-native-backup`` – native Omada controller backup (``.cfg``). The file is decrypted in memory
+                           (see :mod:`app.omada.cfg_crypto`) and mapped best effort
+                           (see :mod:`app.omada.native_backup`). Already decrypted backups (JSON with
+                           ``mainInfo``/``systemSetting``) are accepted as ``omada-native-backup-json``.
+                           Neither the file nor the decrypted document is ever stored.
 
 Imported data is validated, sanitised (secrets removed) and stored as a separate snapshot with
 source ``backup``. It never overwrites API data – differences are reported as conflicts.
@@ -22,6 +25,8 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.models.system import BackupImport, ConfigSnapshot, User
+from app.omada import native_backup
+from app.omada.cfg_crypto import CfgError, decrypt_cfg, looks_like_cfg
 from app.omada.parsers import normalize, sanitize
 from app.services.changes import UNTRACKED_KINDS, tracked_view
 from app.services.dataset import KINDS, load_dataset, row_index
@@ -29,6 +34,9 @@ from app.services.manual import audit
 
 MAX_DEPTH = 40
 MAX_ITEMS = 200_000
+MAX_STRING = 100_000
+# Native backups are much larger (complete controller database incl. e.g. portal images).
+NATIVE_LIMITS = {"max_depth": 64, "max_items": 5_000_000, "max_string": 16 * 1024 * 1024}
 
 SITE_KEYS = {
     "site": dict, "devices": list, "clients": list, "lan_networks": list, "lan_profiles": list, "gateway_acls": list,
@@ -44,23 +52,28 @@ class BackupError(ValueError):
     pass
 
 
-def _check_structure(value: Any, depth: int = 0, counter: list[int] | None = None) -> None:
-    counter = counter if counter is not None else [0]
-    if depth > MAX_DEPTH:
-        raise BackupError("The JSON document is nested too deeply.")
-    counter[0] += 1
-    if counter[0] > MAX_ITEMS:
-        raise BackupError("The JSON document contains too many elements.")
-    if isinstance(value, dict):
-        for k, v in value.items():
-            if not isinstance(k, str) or len(k) > 200:
-                raise BackupError("Invalid key in JSON document.")
-            _check_structure(v, depth + 1, counter)
-    elif isinstance(value, list):
-        for v in value:
-            _check_structure(v, depth + 1, counter)
-    elif isinstance(value, str) and len(value) > 100_000:
-        raise BackupError("A string value in the JSON document is too long.")
+def _check_structure(value: Any, max_depth: int = MAX_DEPTH, max_items: int = MAX_ITEMS,
+                     max_string: int = MAX_STRING) -> None:
+    counter = [0]
+
+    def walk(v: Any, depth: int) -> None:
+        if depth > max_depth:
+            raise BackupError("The JSON document is nested too deeply.")
+        counter[0] += 1
+        if counter[0] > max_items:
+            raise BackupError("The JSON document contains too many elements.")
+        if isinstance(v, dict):
+            for k, x in v.items():
+                if not isinstance(k, str) or len(k) > 200:
+                    raise BackupError("Invalid key in JSON document.")
+                walk(x, depth + 1)
+        elif isinstance(v, list):
+            for x in v:
+                walk(x, depth + 1)
+        elif isinstance(v, str) and len(v) > max_string:
+            raise BackupError("A string value in the JSON document is too long.")
+
+    walk(value, 0)
 
 
 def parse_backup(filename: str, content: bytes) -> dict[str, Any]:
@@ -68,18 +81,22 @@ def parse_backup(filename: str, content: bytes) -> dict[str, Any]:
     result: dict[str, Any] = {"filename": filename, "sha256": hashlib.sha256(content).hexdigest(), "status": "rejected",
                               "detected_format": None, "controller_version": None, "backup_version": None,
                               "errors": [], "warnings": [], "unsupported": [], "entities": None, "summary": {}}
-    head = content[:16]
-    if filename.lower().endswith(".cfg") or not head.lstrip().startswith((b"{", b"[")):
-        result["detected_format"] = "omada-native-backup" if filename.lower().endswith(".cfg") else "unknown"
+    is_json = content[:16].lstrip().startswith((b"{", b"["))
+    if not is_json:
+        if filename.lower().endswith(".cfg") or looks_like_cfg(content):
+            return _parse_native_cfg(content, result)
+        result["detected_format"] = "unknown"
         result["errors"].append(
-            "This is not a JSON document. Native Omada controller backups (.cfg) are encrypted and proprietary; "
-            "they cannot be read. Export a JSON dump from this application or provide Open API responses instead.")
+            "The file is neither a JSON document nor a native Omada controller backup (.cfg).")
         return result
     try:
         data = json.loads(content.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        result["errors"].append(f"Invalid JSON: {exc}")
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as exc:
+        result["errors"].append(f"Invalid JSON: {type(exc).__name__}: {exc}")
         return result
+    if native_backup.is_native_document(data):
+        result["detected_format"] = "omada-native-backup-json"
+        return _parse_native(data, result)
     try:
         _check_structure(data)
     except BackupError as exc:
@@ -138,6 +155,49 @@ def parse_backup(filename: str, content: bytes) -> dict[str, Any]:
         result["errors"].append(f"The data could not be interpreted: {type(exc).__name__}: {exc}")
         return result
     result["collected_at"] = data.get("collected_at")
+    return _finish(result, entities)
+
+
+def _parse_native_cfg(content: bytes, result: dict[str, Any]) -> dict[str, Any]:
+    result["detected_format"] = "omada-native-backup"
+    try:
+        plain = decrypt_cfg(content)
+    except CfgError as exc:
+        result["errors"].append(str(exc))
+        return result
+    try:
+        data = json.loads(plain.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as exc:
+        result["errors"].append(f"The backup was decrypted but does not contain valid JSON: {type(exc).__name__}")
+        return result
+    del plain  # drop the decrypted document as early as possible
+    if not native_backup.is_native_document(data):
+        result["errors"].append("The backup was decrypted but its structure is not recognised "
+                                "(no 'mainInfo' / 'systemSetting' section).")
+        return result
+    return _parse_native(data, result)
+
+
+def _parse_native(data: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
+    try:
+        _check_structure(data, **NATIVE_LIMITS)
+    except BackupError as exc:
+        result["errors"].append(str(exc))
+        return result
+    try:
+        raw, meta = native_backup.convert(data)
+        entities = normalize(raw, None)
+    except Exception as exc:  # noqa: BLE001 - parsers must never crash on untrusted input
+        result["errors"].append(f"The backup could not be interpreted: {type(exc).__name__}: {exc}")
+        return result
+    redacted = [0]
+    entities = native_backup.redact(entities, meta["secrets"], redacted)
+    if redacted[0]:
+        meta["warnings"].append(f"{redacted[0]} value(s) matching secrets from the backup were redacted.")
+    result.update(controller_version=meta["controller_version"], backup_version=meta["backup_version"],
+                  collected_at=meta["collected_at"])
+    result["warnings"] += meta["warnings"]
+    result["unsupported"] += meta["unsupported"]
     return _finish(result, entities)
 
 

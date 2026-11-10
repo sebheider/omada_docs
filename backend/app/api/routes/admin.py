@@ -166,7 +166,8 @@ def get_sync_detail(sync_id: int, db: Session = Depends(get_db), _: User = Depen
 async def import_backup_file(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db),
                              admin: User = Depends(require_admin)) -> dict:
     content = await _read_limited(file)
-    rec = backup_import.import_backup(db, admin, file.filename or "upload", content, client_ip(request))
+    rec = await asyncio.to_thread(backup_import.import_backup, db, admin, file.filename or "upload", content,
+                                  client_ip(request))
     db.commit()
     return backup_import.import_dict(rec, full=True)
 
