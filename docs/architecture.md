@@ -39,7 +39,7 @@ and turns it into browsable, searchable and exportable network documentation.
 | `backend/app/core` | Settings (`OMADA_DOCS_*` environment variables), logging with secret redaction, encryption, password hashing |
 | `backend/app/db`, `backend/alembic` | Engine/session handling, declarative base, migrations (run automatically on start) |
 | `backend/app/models` | Technical tables (one per object type), manual documentation, users/sessions, sync history, snapshots, change log, audit log, search index |
-| `backend/app/omada` | Open API client, endpoint catalogue, collector, normalising parsers, simulated controller for demo mode and tests |
+| `backend/app/omada` | Open API client, endpoint catalogue, collector, normalising parsers, native `.cfg` backup decryption and mapping, simulated controller for demo mode and tests |
 | `backend/app/services` | Domain logic (see below) |
 | `backend/app/api` | REST API (`/api/...`), authentication and CSRF dependencies |
 | `backend/app/templates` | Jinja2 template for the HTML/PDF report |
