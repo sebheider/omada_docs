@@ -690,6 +690,12 @@ def normalize(raw: dict[str, Any], host: str | None = None) -> dict[str, list[di
         devices = [parse_device(d, sid) for d in s.get("devices") or []]
         entities["device"] += devices
         clients = [parse_client(c, sid) for c in s.get("clients") or []]
+        for c in clients:
+            net = nets.get(c.get("network_id") or "")
+            if net and (c.get("vlan_id") is None or not c.get("network_name")):
+                c["vlan_id"] = c.get("vlan_id") if c.get("vlan_id") is not None else net.get("vlan_id")
+                c["network_name"] = c.get("network_name") or net.get("name")
+                c["network_source"] = "derived"
         entities["client"] += clients
 
         wlans = []

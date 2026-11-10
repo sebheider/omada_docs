@@ -10,10 +10,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, Index, String
+from sqlalchemy import JSON, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, utcnow
+from app.db.base import Base, UTCDateTime, utcnow
 
 
 class OmadaRecord:
@@ -23,8 +23,8 @@ class OmadaRecord:
     name: Mapped[str | None] = mapped_column(String(255))
     controller_id: Mapped[str | None] = mapped_column(String(128))
     source: Mapped[str] = mapped_column(String(16), default="api")  # api | backup | demo | derived
-    collected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    collected_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
     validation_status: Mapped[str] = mapped_column(String(16), default="valid")  # valid|partial|invalid
     data: Mapped[dict] = mapped_column(JSON)
 

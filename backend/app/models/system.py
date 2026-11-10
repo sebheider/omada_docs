@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, utcnow
+from app.db.base import Base, UTCDateTime, utcnow
 
 
 class User(Base):
@@ -18,8 +18,8 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(16), default="viewer")  # admin | viewer
     auth_source: Mapped[str] = mapped_column(String(16), default="local")  # local | proxy
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+    last_login: Mapped[datetime | None] = mapped_column(UTCDateTime())
 
 
 class UserSession(Base):
@@ -27,8 +27,8 @@ class UserSession(Base):
     id: Mapped[str] = mapped_column(String(64), primary_key=True)  # sha256 of the session token
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     csrf_token: Mapped[str] = mapped_column(String(64))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime())
     ip: Mapped[str | None] = mapped_column(String(64))
 
 
@@ -37,13 +37,13 @@ class AppSetting(Base):
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
     value: Mapped[str | None] = mapped_column(Text)
     encrypted: Mapped[bool] = mapped_column(Boolean, default=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, onupdate=utcnow)
 
 
 class AuditLog(Base):
     __tablename__ = "audit_log"
     id: Mapped[int] = mapped_column(primary_key=True)
-    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    ts: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, index=True)
     username: Mapped[str | None] = mapped_column(String(64))
     action: Mapped[str] = mapped_column(String(64))
     object_type: Mapped[str | None] = mapped_column(String(64))
@@ -55,8 +55,8 @@ class AuditLog(Base):
 class SyncHistory(Base):
     __tablename__ = "sync_history"
     id: Mapped[int] = mapped_column(primary_key=True)
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, index=True)
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     status: Mapped[str] = mapped_column(String(16), default="running")  # running|success|partial|failed
     trigger: Mapped[str] = mapped_column(String(16), default="manual")  # manual|scheduled|startup
     duration_ms: Mapped[int | None] = mapped_column(Integer)
@@ -72,7 +72,7 @@ class SyncHistory(Base):
 class ConfigSnapshot(Base):
     __tablename__ = "config_snapshots"
     id: Mapped[int] = mapped_column(primary_key=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, index=True)
     source: Mapped[str] = mapped_column(String(16))  # api | backup | demo
     label: Mapped[str | None] = mapped_column(String(255))
     controller_version: Mapped[str | None] = mapped_column(String(64))
@@ -84,7 +84,7 @@ class ConfigSnapshot(Base):
 class ChangeLog(Base):
     __tablename__ = "change_log"
     id: Mapped[int] = mapped_column(primary_key=True)
-    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    ts: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, index=True)
     kind: Mapped[str] = mapped_column(String(16), index=True)  # config | manual
     sync_id: Mapped[int | None] = mapped_column(ForeignKey("sync_history.id", ondelete="SET NULL"))
     site_id: Mapped[str | None] = mapped_column(String(64), index=True)
@@ -101,7 +101,7 @@ class ChangeLog(Base):
 class BackupImport(Base):
     __tablename__ = "backup_imports"
     id: Mapped[int] = mapped_column(primary_key=True)
-    imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    imported_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
     filename: Mapped[str] = mapped_column(String(255))
     sha256: Mapped[str] = mapped_column(String(64))
     detected_format: Mapped[str | None] = mapped_column(String(64))

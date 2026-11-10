@@ -113,7 +113,7 @@ class OmadaClient:
         )
         self.request_count = 0
 
-    async def __aenter__(self) -> "OmadaClient":
+    async def __aenter__(self) -> OmadaClient:
         return self
 
     async def __aexit__(self, *exc) -> None:
@@ -133,7 +133,7 @@ class OmadaClient:
                 resp = await self._http.request(method, url, **kwargs)
             except httpx.TransportError as exc:
                 if attempt >= self.max_retries:
-                    raise OmadaConnectionError(f"Connection to controller failed: {exc.__class__.__name__}: {exc}")
+                    raise OmadaConnectionError(f"Connection to controller failed: {exc.__class__.__name__}: {exc}") from exc
                 await self._backoff(attempt, f"transport error {exc.__class__.__name__}")
                 attempt += 1
                 continue
