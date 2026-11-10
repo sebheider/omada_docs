@@ -1,0 +1,38 @@
+# Omada Docs – example Docker Compose file (e.g. for Synology Container Manager → Project).
+#
+# 1. Create a folder for persistent data, e.g. /volume1/docker/omada-docs/data
+# 2. Copy .env.example to .env next to this file and adjust it
+# 3. docker compose up -d   (or create a "Project" in Container Manager)
+#
+# All data (SQLite database, attachments, logs, encryption key) lives in the mounted /data directory.
+# Back it up regularly (Hyper Backup) or use the built-in application backup.
+
+services:
+  omada-docs:
+    build: .
+    image: omada-docs:latest
+    container_name: omada-docs
+    restart: unless-stopped
+    ports:
+      - "${OMADA_DOCS_PORT:-8080}:8080"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      OMADA_DOCS_DEMO_MODE: ${OMADA_DOCS_DEMO_MODE:-false}
+      # User/group that owns the data directory on the NAS (Synology: `id <user>` via SSH; often 1026:100).
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+    volumes:
+      - ${OMADA_DOCS_DATA_PATH:-./data}:/data
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
