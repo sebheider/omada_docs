@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node / frontend
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# Built SPA copied into the backend image
+backend/static/
+
+# Runtime data (database, secrets, logs, attachments, exports)
+data/
+*.db
+*.sqlite3
+secret.key
+.env
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
