@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ r.title }}</title>
+<style>
+@page { size: A4 landscape; margin: 14mm 14mm 16mm 14mm;
+  @bottom-left { content: "{{ r.title }} · generated {{ r.generated_at|dt }}"; font-size: 8pt; color: #64748b; }
+  @bottom-right { content: "Page " counter(page) " / " counter(pages); font-size: 8pt; color: #64748b; } }
+@page cover { @bottom-left { content: none; } @bottom-right { content: none; } }
+* { box-sizing: border-box; }
+body { font-family: "DejaVu Sans", "Segoe UI", Arial, sans-serif; color: #0f172a; font-size: 9.5pt; line-height: 1.4; margin: 0; }
+.screen body, body.screen { max-width: 1400px; margin: 0 auto; padding: 24px; }
+h1 { font-size: 20pt; color: #1e3a8a; border-bottom: 3px solid #1e3a8a; padding-bottom: 4px; page-break-before: always; margin-top: 0; }
+h2 { font-size: 13pt; color: #1e40af; margin: 18px 0 6px; page-break-after: avoid; }
+h3 { font-size: 11pt; margin: 12px 0 4px; page-break-after: avoid; }
+table { width: 100%; border-collapse: collapse; margin: 6px 0 12px; font-size: 8.5pt; }
+th { background: #1e3a8a; color: #fff; text-align: left; padding: 4px 6px; font-weight: 600; }
+td { border-bottom: 1px solid #e2e8f0; padding: 3px 6px; vertical-align: top; }
+tr:nth-child(even) td { background: #f8fafc; }
+thead { display: table-header-group; }
+tr { page-break-inside: avoid; }
+.cover { page: cover; height: 175mm; display: flex; flex-direction: column; justify-content: center; }
+.cover h1 { page-break-before: avoid; border: none; font-size: 30pt; }
+.cover .meta td { border: none; padding: 2px 12px 2px 0; font-size: 10pt; background: none; }
+.toc { page-break-before: always; }
+.toc ul { list-style: none; padding: 0; font-size: 11pt; }
+.toc li { margin: 4px 0; }
+.toc a { color: #0f172a; text-decoration: none; }
+.toc a::after { content: leader('.') target-counter(attr(href), page); }
+.muted { color: #64748b; }
+.badge { display: inline-block; padding: 0 6px; border-radius: 8px; font-size: 7.5pt; font-weight: 600; color: #fff; }
+.b-allow, .b-allowed, .b-online, .b-up, .b-connected { background: #16a34a; }
+.b-deny, .b-blocked, .b-offline, .b-down, .b-disconnected { background: #dc2626; }
+.b-restricted, .b-medium, .b-stale { background: #f59e0b; }
+.b-unknown, .b-low, .b-disabled { background: #6b7280; }
+.b-high { background: #2563eb; }
+.b-manual { background: #a16207; }
+.diagram { text-align: center; margin: 8px 0 14px; page-break-inside: avoid; }
+.diagram svg { max-width: 100%; height: auto; max-height: 160mm; }
+.note { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 6px 10px; margin: 8px 0; font-size: 8.5pt; }
+.manual { background: #fdf8ed; border-left: 4px solid #a16207; padding: 4px 8px; margin: 4px 0; font-size: 8.5pt; }
+.doc-body { border: 1px solid #e2e8f0; padding: 8px 12px; border-radius: 6px; }
+.doc-body img { max-width: 100%; }
+code, .mono { font-family: "DejaVu Sans Mono", Consolas, monospace; font-size: 8pt; }
+.src { font-size: 7pt; color: #64748b; }
+</style>
+</head>
+<body class="{{ 'screen' if screen else '' }}">
+
+<section class="cover">
+  <div class="muted" style="font-size:12pt">Omada Network Documentation Platform</div>
+  <h1>{{ r.title }}</h1>
+  {% if r.site_manual.description %}<p style="font-size:11pt">{{ r.site_manual.description }}</p>{% endif %}
+  <table class="meta">
+    <tr><td><b>Created</b></td><td>{{ r.generated_at|dt }}</td></tr>
+    <tr><td><b>Data snapshot</b></td><td>{% if r.snapshot %}#{{ r.snapshot.id }} from {{ r.snapshot.created_at|dt }} (checksum {{ r.snapshot.checksum }}, source {{ r.snapshot.source }}){% else %}No snapshot available{% endif %}</td></tr>
+    <tr><td><b>Last synchronisation</b></td><td>{% if r.last_sync %}{{ r.last_sync.finished_at|dt }} ({{ r.last_sync.status }}){% else %}never{% endif %}</td></tr>
+    <tr><td><b>Controller</b></td><td>{{ r.controller.name or '–' }} · version {{ r.controller.version or 'unknown' }}{% if r.controller.model %} · {{ r.controller.model }}{% endif %}</td></tr>
+    <tr><td><b>Site</b></td><td>{{ r.site.name if r.site else '–' }}{% if r.site and r.site.region %} · {{ r.site.region }}{% endif %}</td></tr>
+    <tr><td><b>Application version</b></td><td>{{ r.app_version }}</td></tr>
+    <tr><td><b>Client data</b></td><td>{{ 'Anonymised (MAC/IP partially masked)' if r.anonymized else 'Full details' }}</td></tr>
+  </table>
+  <p class="muted" style="margin-top:20px">This document was generated automatically from read-only controller data and manual documentation. It contains no passwords, pre-shared keys or API credentials.</p>
+</section>
+
+<section class="toc">
+  <h2>Table of contents</h2>
+  <ul>
+    <li><a href="#version">Version information</a></li>
+    {% for c in r.chapters %}<li><a href="#ch-{{ c }}">{{ loop.index }}. {{ r.chapter_titles[c] }}</a></li>{% endfor %}
+  </ul>
+</section>
+
+<h1 id="version">Version information</h1>
+<table>
+  <tr><th>Property</th><th>Value</th></tr>
+  <tr><td>Document created</td><td>{{ r.generated_at|dt }}</td></tr>
+  <tr><td>Represented data snapshot</td><td>{% if r.snapshot %}#{{ r.snapshot.id }} ({{ r.snapshot.created_at|dt }}){% else %}–{% endif %}</td></tr>
+  <tr><td>Controller name</td><td>{{ r.controller.name or '–' }}</td></tr>
+  <tr><td>Controller version</td><td>{{ r.controller.version or 'unknown' }}</td></tr>
+  <tr><td>Controller type / model</td><td>{{ r.controller.controller_type or '–' }} {{ r.controller.model or '' }}</td></tr>
+  <tr><td>Open API version</td><td>{{ r.controller.api_version or 'unknown' }}</td></tr>
+  <tr><td>Controller host</td><td>{{ r.controller.host or '–' }}</td></tr>
+  <tr><td>Included chapters</td><td>{{ r.chapters|map('chapter', r)|join(', ') }}</td></tr>
+</table>
+
+{% for c in r.chapters %}
+{% set num = loop.index %}
+
+{% if c == 'overview' %}
+<h1 id="ch-overview">{{ num }}. Network overview</h1>
+<div class="diagram">{{ diagrams.topology|safe }}</div>
+{% for n in r.topology.notes %}<div class="note">{{ n }}</div>{% endfor %}
+{% if r.topology.unresolved %}
+<h3>Devices with unknown connection</h3>
+<table><thead><tr><th>Device</th><th>Reason</th></tr></thead>
+{% for u in r.topology.unresolved %}<tr><td>{{ u.name }}</td><td>{{ u.reason }}</td></tr>{% endfor %}</table>
+{% endif %}
+<h2>Network segmentation</h2>
+<div class="diagram">{{ diagrams.segmentation|safe }}</div>
+<h2>Internet / WAN</h2>
+{% if r.wans %}
+<table><thead><tr><th>WAN</th><th>Description</th><th>Connection type</th><th>VLAN</th><th>Status</th><th>IP address</th><th>Gateway</th><th>ISP</th></tr></thead>
+{% for w in r.wans %}<tr><td>{{ w.name }}</td><td>{{ w.description or '' }}</td><td>{{ w.type or 'unknown' }}</td><td>{{ w.vlan_id or '–' }}</td>
+<td><span class="badge b-{{ w.status or 'unknown' }}">{{ w.status or 'unknown' }}</span></td><td>{{ w.ipv4.address if w.ipv4 else '' }}</td><td>{{ w.ipv4.gateway if w.ipv4 else '' }}</td><td>{{ w.isp or '' }}</td></tr>{% endfor %}
+</table>
+{% else %}<p class="muted">No WAN information available.</p>{% endif %}
+{% if r.routes %}<h2>Static routes</h2>
+<table><thead><tr><th>Name</th><th>Enabled</th><th>Destinations</th><th>Next hop / interface</th><th>Metric</th></tr></thead>
+{% for rt in r.routes %}<tr><td>{{ rt.name }}</td><td>{{ 'yes' if rt.enabled else 'no' }}</td><td>{{ (rt.destinations or [])|join(', ') }}</td><td>{{ rt.next_hop or rt.interface or '–' }}</td><td>{{ rt.metric if rt.metric is not none else '' }}</td></tr>{% endfor %}</table>{% endif %}
+{% if r.vpns %}<h2>VPN</h2>
+<table><thead><tr><th>Name</th><th>Type</th><th>Enabled</th><th>Remote</th><th>Local networks</th><th>Remote subnets</th></tr></thead>
+{% for v in r.vpns %}<tr><td>{{ v.name }}</td><td>{{ v.type or '' }}</td><td>{{ 'yes' if v.enabled else 'no' }}</td><td>{{ v.remote_ip or v.remote_site or '' }}</td><td>{{ (v.local_networks or [])|join(', ') }}</td><td>{{ (v.remote_subnets or [])|join(', ') }}</td></tr>{% endfor %}</table>{% endif %}
+
+{% elif c == 'vlans' %}
+<h1 id="ch-vlans">{{ num }}. VLAN documentation</h1>
+<table><thead><tr><th>VLAN</th><th>Name</th><th>Network</th><th>Gateway</th><th>Mask</th><th>DHCP range</th><th>DNS</th><th>SSIDs</th><th>Clients</th></tr></thead>
+{% for n in r.networks %}{% set seg = (r.topology.segmentation|selectattr('id','equalto',n.key)|first) %}
+<tr><td><b>{{ n.vlan_id if n.vlan_id is not none else '–' }}</b></td><td>{{ n.manual.display_name or n.name }}</td><td>{{ n.subnet or '–' }}</td><td>{{ n.gateway or '–' }}</td><td>{{ n.netmask or '–' }}</td>
+<td>{% if n.dhcp and n.dhcp.enabled %}{{ n.dhcp.range_start }} – {{ n.dhcp.range_end }}{% else %}disabled{% endif %}</td>
+<td>{% if n.dhcp %}{{ n.dhcp.dns_mode or '' }} {{ (n.dhcp.dns_servers or [])|join(', ') }}{% endif %}</td>
+<td>{{ (seg.ssids if seg else [])|join(', ') }}</td><td>{{ seg.client_count if seg else '' }}</td></tr>{% endfor %}
+</table>
+{% for n in r.networks %}
+<h2>VLAN {{ n.vlan_id }} – {{ n.manual.display_name or n.name }}</h2>
+{% if n.manual.description %}<div class="manual"><b>Description:</b> {{ n.manual.description }}</div>{% endif %}
+{% if n.manual.notes %}<div class="manual"><b>Notes:</b> {{ n.manual.notes }}</div>{% endif %}
+<table><thead><tr><th>Property</th><th>Value</th><th>Property</th><th>Value</th></tr></thead>
+<tr><td>Purpose</td><td>{{ n.purpose or '–' }}</td><td>Domain</td><td>{{ n.domain or '–' }}</td></tr>
+<tr><td>IGMP snooping</td><td>{{ 'on' if n.igmp_snooping else 'off' }}</td><td>IPv6</td><td>{{ n.ipv6.mode if n.ipv6 and n.ipv6.enabled else 'disabled' }}</td></tr>
+<tr><td>DHCP lease</td><td>{{ n.dhcp.lease_minutes ~ ' min' if n.dhcp and n.dhcp.lease_minutes else '–' }}</td><td>DHCP reservations</td><td>{{ (n.dhcp.reservations|length) if n.dhcp and n.dhcp.reservations else 0 }}</td></tr>
+</table>
+{% if n.dhcp and n.dhcp.reservations %}<table><thead><tr><th>Reserved IP</th><th>MAC</th><th>Name</th></tr></thead>
+{% for res in n.dhcp.reservations %}<tr><td>{{ res.ip }}</td><td class="mono">{{ res.mac }}</td><td>{{ res.name or '' }}</td></tr>{% endfor %}</table>{% endif %}
+{% endfor %}
+
+{% elif c == 'devices' %}
+<h1 id="ch-devices">{{ num }}. Device overview</h1>
+<table><thead><tr><th>Name</th><th>Type</th><th>Model</th><th>IP</th><th>MAC</th><th>Firmware</th><th>Serial</th><th>Status</th><th>Uplink</th><th>Location</th></tr></thead>
+{% for d in r.devices %}<tr><td><b>{{ d.manual.display_name or d.name }}</b></td><td>{{ d.type }}</td><td>{{ d.model or '' }}</td><td>{{ d.ip or '' }}</td><td class="mono">{{ d.mac }}</td><td>{{ d.firmware or '' }}</td><td>{{ d.serial or '' }}</td>
+<td><span class="badge b-{{ d.status }}">{{ d.status }}</span></td><td>{% if d.uplink_device_name %}{{ d.uplink_device_name }}{% if d.uplink_port %} · port {{ d.uplink_port }}{% endif %}{% else %}<span class="muted">{{ '–' if d.type == 'gateway' else 'unknown' }}</span>{% endif %}</td><td>{{ d.manual.location or '' }}</td></tr>{% endfor %}
+</table>
+{% for d in r.devices if d.manual.description or d.manual.notes or d.manual.responsible %}
+<h3>{{ d.manual.display_name or d.name }}</h3>
+<div class="manual">{% if d.manual.description %}<b>Description:</b> {{ d.manual.description }}<br>{% endif %}{% if d.manual.responsible %}<b>Responsible:</b> {{ d.manual.responsible }}<br>{% endif %}{% if d.manual.notes %}<b>Notes:</b> {{ d.manual.notes }}{% endif %}</div>
+{% endfor %}
+
+{% elif c == 'ports' %}
+<h1 id="ch-ports">{{ num }}. Switch port documentation</h1>
+{% for s in r.switches %}
+<h2>{{ s.manual.display_name or s.name }} <span class="muted">({{ s.model }}, {{ s.ip }})</span></h2>
+<div class="diagram">{{ diagrams.ports[s.mac]|safe }}</div>
+<table><thead><tr><th>Port</th><th>Link</th><th>Speed</th><th>PoE</th><th>Profile</th><th>Native VLAN</th><th>Tagged</th><th>Connected</th><th>Description</th></tr></thead>
+{% for p in r.ports_by_switch[s.mac] %}<tr><td><b>{{ p.port }}</b>{% if p.link_role == 'uplink' %} <span class="badge b-high">uplink</span>{% endif %}</td>
+<td><span class="badge b-{{ p.link_status or 'unknown' }}">{{ p.link_status or 'unknown' }}</span></td><td>{{ p.speed or '' }}</td>
+<td>{% if p.poe and p.poe.active %}{{ p.poe.power_w }} W{% elif p.poe and p.poe.supported %}off{% else %}–{% endif %}</td>
+<td>{{ p.profile_name or '' }}</td><td>{{ p.native_network or '' }}{% if p.native_vlan_id is not none %} ({{ p.native_vlan_id }}){% endif %}</td>
+<td>{{ (p.tagged_networks or [])|join(', ')|truncate(60) }}</td>
+<td>{% for cn in p.connected or [] %}{{ cn.name or cn.mac }}{% if cn.mac %} <span class="mono">{{ cn.mac }}</span>{% endif %}{% if not loop.last %}<br>{% endif %}{% endfor %}</td>
+<td>{{ p.manual.display_name or '' }}{% if p.manual.description %} – {{ p.manual.description }}{% endif %}</td></tr>{% endfor %}
+</table>
+{% else %}<p class="muted">No switches found.</p>{% endfor %}
+
+{% elif c == 'wlans' %}
+<h1 id="ch-wlans">{{ num }}. WLAN documentation</h1>
+<p class="muted">Passwords and pre-shared keys are never collected or exported.</p>
+<table><thead><tr><th>SSID</th><th>WLAN group</th><th>Enabled</th><th>VLAN / network</th><th>Bands</th><th>Security</th><th>Encryption</th><th>Guest</th><th>Broadcast</th><th>AP assignment</th><th>Clients</th></tr></thead>
+{% for w in r.wlans %}<tr><td><b>{{ w.ssid }}</b></td><td>{{ w.wlan_group or '' }}</td><td>{{ 'yes' if w.enabled else 'no' }}</td>
+<td>{% if w.vlan_enabled %}{{ w.vlan_id }}{% if w.network_name %} · {{ w.network_name }}{% endif %}{% if w.network_source == 'derived' %} <span class="src">(derived)</span>{% endif %}{% else %}default{% endif %}</td>
+<td>{{ (w.bands or [])|join(', ') }}</td><td>{{ w.security or '' }} {{ w.security_version or '' }}</td><td>{{ w.encryption or '' }}</td>
+<td>{{ 'yes' if w.guest else 'no' }}</td><td>{{ 'yes' if w.broadcast else 'hidden' }}</td><td>{{ w.ap_assignment or '' }}</td><td>{{ w.client_count if w.client_count is not none else '' }}</td></tr>{% endfor %}
+</table>
+
+{% elif c == 'acl' %}
+<h1 id="ch-acl">{{ num }}. ACL rules</h1>
+<p>Rules are evaluated in order (lowest index first) within each ACL type. Explanations are derived from the actual rule parameters; the confidence column shows how reliably the effect can be determined.</p>
+{% for t in ['gateway','switch','eap'] %}{% set rules = r.acl_rules|selectattr('acl_type','equalto',t)|list %}{% if rules %}
+<h2>{{ {'gateway':'Gateway ACLs','switch':'Switch ACLs','eap':'EAP (wireless) ACLs'}[t] }}</h2>
+<table><thead><tr><th>#</th><th>Name</th><th>Enabled</th><th>Source</th><th>Destination</th><th>Protocol</th><th>Port</th><th>Action</th><th>Direction</th><th>Confidence</th></tr></thead>
+{% for rule in rules %}<tr><td>{{ rule.index }}</td><td><b>{{ rule.manual.display_name or rule.name }}</b></td><td>{{ 'yes' if rule.enabled else 'no' }}</td>
+<td>{{ rule.source|side }}</td><td>{{ rule.destination|side }}</td><td>{{ (rule.protocols or [])|join(', ')|upper or 'ALL' }}</td>
+<td>{{ ((rule.source.ports or []) + (rule.destination.ports or []))|join(', ') or 'any' }}</td>
+<td><span class="badge b-{{ rule.action }}">{{ rule.action }}</span></td><td>{{ (rule.directions or [])|join(', ')|replace('_',' ') or ('–' if t != 'gateway' else 'unknown') }}</td>
+<td><span class="badge b-{{ rule.analysis.confidence or 'unknown' }}">{{ rule.analysis.confidence or 'unknown' }}</span></td></tr>
+<tr><td></td><td colspan="9"><span class="mono">{{ rule.analysis.technical }}</span><br>{{ rule.analysis.explanation }}
+{% if rule.analysis.confidence_reasons %}<br><span class="muted">⚠ {{ rule.analysis.confidence_reasons|join(' ') }}</span>{% endif %}
+{% if rule.manual.description %}<div class="manual">{{ rule.manual.description }}</div>{% endif %}</td></tr>{% endfor %}
+</table>{% endif %}{% else %}{% endfor %}
+{% if not r.acl_rules %}<p class="muted">No ACL rules configured.</p>{% endif %}
+{% if r.ip_groups %}<h2>IP and port groups</h2>
+<table><thead><tr><th>Name</th><th>Type</th><th>Entries</th><th>Ports</th></tr></thead>
+{% for g in r.ip_groups %}<tr><td>{{ g.name }}</td><td>{{ g.type }}</td><td>{{ (g.entries or [])|map(attribute='ip')|select|join(', ') }}{{ (g.domains or [])|join(', ') }}{{ (g.countries or [])|join(', ') }}</td><td>{{ (g.ports or [])|join(', ') }}</td></tr>{% endfor %}</table>{% endif %}
+
+{% elif c == 'matrix' %}
+<h1 id="ch-matrix">{{ num }}. ACL communication matrix</h1>
+<p>Calculated from the actual ACL configuration. “Restricted” means that only part of the traffic is allowed or blocked; “unknown” means the effect cannot be determined reliably.</p>
+<div class="diagram">{{ diagrams.matrix|safe }}</div>
+<table><thead><tr><th>Source</th><th>Destination</th><th>Communication</th><th>Basis</th><th>Rules / notes</th></tr></thead>
+{% set segs = r.matrix.segments %}
+{% for cell in r.matrix.cells if cell.basis != 'default' or cell.status != 'allowed' %}
+<tr><td>{{ (segs|selectattr('id','equalto',cell.source)|first).name }}</td><td>{{ (segs|selectattr('id','equalto',cell.destination)|first).name }}</td>
+<td><span class="badge b-{{ cell.status }}">{{ cell.status }}</span></td><td>{{ cell.basis }}</td><td>{{ cell.rules|map('rulename', r)|join(', ') }}{% if cell.notes %}<br><span class="muted">{{ cell.notes|join(' ') }}</span>{% endif %}</td></tr>{% endfor %}
+</table>
+<p class="muted">Pairs without explicit rules that are allowed by Omada's default behaviour are omitted from this table but shown in the matrix diagram.</p>
+
+{% elif c == 'nat' %}
+<h1 id="ch-nat">{{ num }}. NAT rules</h1>
+{% if r.nat_rules %}<table><thead><tr><th>Name</th><th>Type</th><th>Enabled</th><th>Protocol</th><th>External</th><th>Internal IP</th><th>Internal port</th><th>Source restriction</th><th>Description</th></tr></thead>
+{% for n in r.nat_rules %}<tr><td><b>{{ n.manual.display_name or n.name }}</b></td><td>{{ (n.nat_type or '')|replace('_',' ') }}</td><td>{{ 'yes' if n.enabled else 'no' }}</td><td>{{ n.protocol or '' }}</td>
+<td>{{ n.external_ip or '' }} {{ n.external_port or '' }}</td><td>{{ n.internal_ip or '' }}</td><td>{{ n.internal_port or '' }}</td><td>{{ n.source or '' }} {{ (n.source_addresses or [])|join(', ') }}</td><td>{{ n.manual.description or '' }}</td></tr>{% endfor %}
+</table>{% else %}<p class="muted">No NAT rules configured.</p>{% endif %}
+
+{% elif c == 'clients' %}
+<h1 id="ch-clients">{{ num }}. Clients</h1>
+{% if r.anonymized %}<p class="muted">Client identifiers are partially masked.</p>{% endif %}
+<table><thead><tr><th>Name</th><th>IP</th><th>MAC</th><th>Network</th><th>Connection</th><th>Connected to</th><th>Vendor</th></tr></thead>
+{% for cl in r.clients %}<tr><td>{{ cl.manual.display_name or cl.name }}</td><td>{{ cl.ip or '' }}</td><td class="mono">{{ cl.mac }}</td><td>{{ cl.network_name or '' }}</td><td>{{ cl.connection_type or '' }}{% if cl.ssid %} · {{ cl.ssid }}{% endif %}</td>
+<td>{{ cl.connected_device_name or '' }}{% if cl.port %} · port {{ cl.port }}{% endif %}</td><td>{{ cl.vendor or '' }}</td></tr>{% endfor %}</table>
+
+{% elif c == 'manual' %}
+<h1 id="ch-manual">{{ num }}. Manual documentation</h1>
+{% for d in r.documents %}
+<h2>{{ d.title }}</h2>
+<p class="muted">Category: {{ d.category|replace('_',' ') }} · last modified {{ d.updated_at|dt }}{% if d.updated_by %} by {{ d.updated_by }}{% endif %}{% if d.tags %} · Tags: {{ d.tags|join(', ') }}{% endif %}</p>
+<div class="doc-body">{{ d.body|markdown|safe }}</div>
+{% else %}<p class="muted">No manual documentation entries.</p>{% endfor %}
+
+{% elif c == 'changes' %}
+<h1 id="ch-changes">{{ num }}. Change overview</h1>
+<p class="muted">Changes of the last {{ r.change_days }} days (configuration changes detected during synchronisation and manual changes).</p>
+{% if r.changes %}<table><thead><tr><th>Date</th><th>Type</th><th>Object</th><th>Change</th><th>Field</th><th>Before</th><th>After</th></tr></thead>
+{% for ch in r.changes %}<tr><td>{{ ch.ts|dt }}</td><td>{{ ch.kind }}{% if ch.username %} ({{ ch.username }}){% endif %}</td><td>{{ ch.object_type|replace('_',' ') }}: {{ ch.object_name }}</td><td>{{ ch.change_type }}</td><td>{{ ch.field or '' }}</td><td>{{ (ch.before or '')|truncate(80) }}</td><td>{{ (ch.after or '')|truncate(80) }}</td></tr>{% endfor %}
+</table>{% else %}<p class="muted">No changes recorded in this period.</p>{% endif %}
+{% endif %}
+{% endfor %}
+</body>
+</html>
